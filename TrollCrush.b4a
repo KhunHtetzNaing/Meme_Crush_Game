@@ -1,0 +1,1161 @@
+﻿Version=6.8
+NumberOfModules=0
+Build1=Default,com.game.memecrush
+ManifestCode='This code will be applied to the manifest file during compilation.~\n~'You do not need to modify it in most cases.~\n~'See this link for for more information: http://www.basic4ppc.com/forum/showthread.php?p=78136~\n~AddManifestText(~\n~<uses-sdk android:minSdkVersion="9" android:targetSdkVersion="19"/>~\n~<supports-screens android:largeScreens="true" ~\n~    android:normalScreens="true" ~\n~    android:smallScreens="true" ~\n~    android:anyDensity="true"/>)~\n~SetApplicationAttribute(android:icon, "@drawable/icon")~\n~SetApplicationAttribute(android:label, "$LABEL$")~\n~'End of default text.~\n~~\n~'************ Google Play Services Base ************~\n~AddApplicationText(~\n~   <activity android:name="com.google.android.gms.common.api.GoogleApiActivity"~\n~  android:theme="@android:style/Theme.Translucent.NoTitleBar"~\n~  android:exported="false"/>~\n~    <meta-data~\n~  android:name="com.google.android.gms.version"~\n~  android:value="@integer/google_play_services_version" />~\n~)~\n~~\n~'************ Google Play Services Base (end) ************~\n~~\n~'************ Firebase Ads ************~\n~AddApplicationText(~\n~  <activity~\n~  android:name="com.google.android.gms.ads.AdActivity"~\n~  android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|uiMode|screenSize|smallestScreenSize"~\n~  android:theme="@android:style/Theme.Translucent" />~\n~  <activity android:name="com.google.android.gms.ads.purchase.InAppPurchaseActivity"~\n~  android:theme="@style/Theme.IAPTheme"/>~\n~)~\n~'************ Firebase Ads (end) ************
+IconFile=
+NumberOfFiles=0
+NumberOfLibraries=4
+Library1=core
+Library2=libgdx
+Library3=randomaccessfile
+Library4=firebaseadmob
+@EndOfDesignText@
+#Region  Project Attributes 
+	#ApplicationLabel: Meme Crush
+	#VersionCode: 1	
+	#VersionName: 1.0
+	'SupportedOrientations possible values: unspecified, landscape or portrait.
+	#SupportedOrientations: portrait
+	#CanInstallToExternalStorage: False
+#End Region
+
+#Region  Activity Attributes 
+	#FullScreen: True
+	#IncludeTitle: False
+#End Region
+
+
+'source code public notes
+
+'Feel free to edit this source code and use it for your own games
+'DO NOT use any of the graphics or sound effects distributed with this source code
+'Use an application such as SFXR to generate your own sound effects
+'Please credit "Programming - Andy McAdam" in the credits for any game written using this source code
+'Modified 16 Dec 2014 by Bluejay. Updated graphics, snd, music, screens and code rewrite
+
+
+Sub Process_Globals
+	'These global variables will be declared once when the application starts.
+	'These variables can be accessed from all modules.
+	
+End Sub
+
+Sub Globals
+	'These global variables will be redeclared each time the activity is created.
+	'These variables can only be accessed from this module.
+		
+	Type typSprite(x As Float, y As Float, mx As Float, my As Float, ftype As Int)
+	Type typScore(x As Float, y As Float,amount As Int,  life As Int)
+	Type typMenuItem(x As Float, y As Float, scale As Float, text As String, height As Float, wide As Float)
+	Type typCell(typ As Int, selected As Boolean, dy As Float, my As Float)
+	
+	' define constants
+	Dim C_GRAVITY            As Float = 0.501
+	Dim vpW                  As Int   = 720          ' default view port screen size
+	Dim vpH                  As Int   = 1134		
+	
+	' declare variables
+	Dim surface              As View                ' main view to hold libGDX surface
+	Dim file_settings        As RandomAccessFile    ' settings file
+	
+	Dim frames               As Int                 ' count frames displayed
+	Dim Aframe               As Int                 ' Animation Frame
+	Dim waitforframe         As Int	
+	Dim FpsScale             As Float = 1           ' ratio of current frame rate to 60fps
+	
+	Dim MiniSpriteList       As List
+	Dim SpriteList           As List
+	Dim DeadSpriteList       As List
+	Dim ScoresList           As List
+
+    ' important libGDX objects
+	Dim lGdx                 As LibGDX              ' DIM creates an instance of libGDX
+	Dim GL                   As lgGL                ' DIM gets a reference to Open GL API
+	Dim Camera               As lgOrthographicCamera
+	Dim lGdx_IP              As lgInputProcessor
+	
+	' declare graphics	
+	Dim img_backing          As lgTexture           ' background picture
+	Dim img_foregnd          As lgTexture           ' front drop	
+	Dim img_GOBacking        As lgTexture           ' game over picture
+	Dim img_Logo             As lgTexture           ' logo for splash screen		
+	Dim img_bline            As lgTexture           ' holds all border gfx for selections
+	Dim img_sprites          As lgTexture           ' holds all sprite images
+	Dim blineregion          As lgTextureRegion	
+	Dim sprites_Region       As lgTextureRegion     ' note: will be using lgTexture and not lgSprite for drawing
+	Dim img_blineFrames(,)   As lgTextureRegion
+	Dim spriteframes(,)      As lgTextureRegion	
+	Dim bitmapfont           As lgBitmapFont        ' a bitmap font is used to show text
+	Dim Batch                As lgSpriteBatch       ' libGDX renderer
+	
+	' declare sounds
+	Dim snd_select           As lgSound
+	Dim snd_pop              As lgSound
+	Dim snd_ting             As lgSound	
+	Dim snd_superpop         As lgSound	
+	Dim snd_warning          As lgSound
+	Dim snd_gameover         As lgSound
+	Dim snd_fanfare          As lgSound
+	Dim snd_music            As lgMusic
+	Dim snd_music1           As lgMusic
+	Dim snd_music2           As lgMusic
+
+	' declare custom types (buttons)
+	Dim btn_startgame        As typMenuItem
+	Dim btn_sound            As typMenuItem
+	Dim btn_music            As typMenuItem
+	Dim btn_moregames        As typMenuItem
+	Dim btn_logo             As typMenuItem	
+	Dim btn_playstore        As typMenuItem
+	Dim btn_playstore2       As typMenuItem	
+	Dim btn_playagain        As typMenuItem
+	Dim btn_resetscore       As typMenuItem
+	Dim btn_chgmusic         As typMenuItem
+	Dim btn_mainmenu         As typMenuItem
+
+	' define game grid
+	Dim GXMax                As Int = 6
+	Dim GYMax                As Int = 9
+	
+	Dim grid(GXMax,GYMax)    As typCell             ' Cell properties = typ, selected, dy, my
+	Dim boardLeft            As Int = 100
+	Dim boardBottom          As Int = 75
+	Dim cellsize             As Int = 90
+	
+	' game variables
+	Dim temp                 As Int
+	Dim worth                As Int
+	Dim score                As Int		
+		
+	Dim gamerunning          As Boolean = False
+	Dim splashscreendone     As Boolean = False
+	Dim gameover             As Boolean = True
+	Dim gamePaused           As Boolean = False	
+	Dim selected             As Int	
+	Dim eachworth            As Int	
+	
+	Dim highscore            As Int = 0
+	Dim countdown            As Float
+	Dim warningcount         As Float	
+	
+	Dim musicplaying         As Boolean
+	Dim soundplaying         As Boolean
+	Dim Track                As Int               ' music track to play (1 or 2)
+	
+	Dim dx                   As Int               ' for animated reset of highscore 
+	Dim offsety              As Float             ' used to scroll board down at start of each game
+	Dim offsetyMy            As Float = 0	
+
+Dim B As AdView
+Dim IAd As InterstitialAd
+End Sub
+
+Sub Activity_Create(FirstTime As Boolean)
+	'Do not forget to load the layout file created with the visual designer. For example:
+	'Activity.LoadLayout("Layout1")
+		surface = lGdx.Initializeview("LG")                   ' Initializes libGDX
+		Activity.AddView(surface, 0, 0, 100%x, 100%y) ' fill screen with libGDX drawing surface
+	vpH = Round(vpW * (Activity.Height) / Activity.Width) ' adjust aspect ratio of view port coords (see globals)
+
+	MiniSpriteList.Initialize
+	SpriteList.Initialize
+	DeadSpriteList.Initialize
+	ScoresList.Initialize
+
+	B.Initialize("B","ca-app-pub-4173348573252986/4337458552")
+	Dim height As Int
+	If GetDeviceLayoutValues.ApproximateScreenSize < 6 Then
+		If 100%x > 100%y Then height = 32dip Else height = 50dip
+	Else
+		height = 90dip
+	End If
+	Activity.AddView(B, 0dip, 100%y - height, 100%x, height)
+	B.LoadAd
+	Log(B)
+	
+	IAd.Initialize("IAd","ca-app-pub-4173348573252986/5814191753")
+	IAd.LoadAd
+	If IAd.Ready = False Then
+		IAd.LoadAd
+	End If
+End Sub
+
+
+'Banner Ads
+Sub B_FailedToReceiveAd (ErrorCode As String)
+	Log("B failed: " & ErrorCode)
+End Sub
+
+Sub B_ReceiveAd
+	Log("B received")
+	surface.RemoveView
+	Activity.AddView(surface, 0, 0, 100%x, 100%y-50dip)
+	Log("Activity Changed")
+End Sub
+
+Sub B_AdScreenDismissed
+	Log("B Dismissed")
+End Sub
+
+'Interstitial Ads
+Sub IAd_AdClosed
+	IAd.LoadAd
+End Sub
+
+Sub IAd_ReceiveAd
+	Log("I Received")
+End Sub
+
+Sub IAd_FailedToReceiveAd (ErrorCode As String)
+	Log("I not Received - " &"Error Code: "&ErrorCode)
+	IAd.LoadAd
+End Sub
+
+Sub IAd_adopened
+	Log("I Opened")
+	IAd.LoadAd
+End Sub
+
+Sub Activity_Resume
+    ' called immediately after Activity Create as well as when as when Activity moves to foreground
+	' this will start the libGDX engine which will then start generating the 'LG_xxx' events
+	' note the libGDX engine runs in a different thread to the UI
+	' Informs libGDX of Resume events
+	If lGdx.IsInitialized Then lGdx.Resume
+End Sub
+
+Sub Activity_Pause (UserClosed As Boolean)
+	'Informs libGDX of Pause events
+	If lGdx.IsInitialized Then lGdx.Pause
+End Sub
+
+' ------------------------------------------------------------
+' libGDX routines
+' ------------------------------------------------------------
+
+Sub LG_Create
+    ' just after application starts (see Activity Resume)
+
+	'Initialize the renderer and input processor
+	Batch.Initialize
+	lGdx_IP.Initialize("IP")
+	
+	'Split the sprite texture into 5 sprites (frames)
+	img_sprites.Initialize("gfx\sprites.png")
+	sprites_Region.InitializeWithTexture(img_sprites)
+	spriteframes = sprites_Region.Split(85, 100)
+
+	' define selection border gfx
+	img_bline.Initialize("gfx\bline_color.PNG")
+	blineregion.InitializeWithTexture(img_bline)
+	img_blineFrames = blineregion.Split(40,40)
+	
+	img_backing.Initialize("gfx\backdrop.png")
+	img_foregnd.Initialize("gfx\frontdrop.png")	
+	img_Logo.Initialize("gfx\logo.png")
+	img_GOBacking.Initialize("gfx\gameoverbacking.png")	
+
+	' load font gfx
+	bitmapfont.Initialize2(lGdx.files.internal("gfx\bmfont_new.fnt"))
+	bitmapfont.Scale(1)
+	bitmapfont.Color = bitmapfont.Color.LIGHT_GRAY
+
+	' load sounds
+	snd_select.Initialize("snd\select.ogg")
+	snd_pop.Initialize("snd\pop.ogg")
+	snd_ting.Initialize("snd\ting.ogg")
+	snd_superpop.Initialize("snd\superpop.ogg")
+	snd_warning.Initialize("snd\warning.ogg")
+	snd_gameover.Initialize("snd\applause.ogg")
+	snd_fanfare.Initialize("snd\fanfare.ogg")
+	
+	snd_music1 = lGdx.Audio.NewMusic("snd\dance_electro.ogg","mymusic")
+	snd_music2 = lGdx.Audio.NewMusic("snd\trance.ogg","mymusic")	
+	snd_music  = snd_music1
+
+    CreateButtons	     ' define text buttons
+	Load_Settings        ' get the last used settings from settings file (Sound on/off, Music on/off, Track and highscore)
+	ChangeMusic(Track)   ' use music track obtained from settings file	
+	CreateMiniSprites    ' create random sprites as decoration at top of screen
+    CreateFlyingSprites  ' create random sprites flying around Main Menu screen
+	
+    splashscreendone = False         ' start game in the Game Option screen
+    waitforframe     = frames + 550
+
+End Sub
+
+Sub LG_Resize(Width As Int, Height As Int)
+	'Sets the camera viewport
+	Camera.Initialize
+	Camera.SetToOrtho2(False, vpW, vpH) 'set camera viewport to viewport size vpW by vpH with 0,0 at bottom left
+End Sub
+
+Sub LG_Render
+    ' draw the screen graphics - called frequently by the libGDX thread
+	FpsScale = Min(Max(lGdx.Graphics.DeltaTime * 60, 0.7),1.6)   ' ensure scaling is not too extreme
+	
+	GL.glClear(GL.GL10_COLOR_BUFFER_BIT)                         ' Clears the screen with
+	GL.glClearColor(.5,.5,1,1)                                   ' bluish background\
+	
+	Batch.ProjectionMatrix = Camera.Combined                     ' Use the coordinate system specified by the camera
+	Camera.update                                                ' Update the matrices of the camera
+
+  ' show one of the three screens, more complex games would use lgScreenManager
+  If Not(splashscreendone) Then
+    Draw_Splash_Screen
+  Else If Not(gamerunning) Then
+    Draw_Main_Menu
+  Else
+    Main_Gameplay_Loop
+  End If
+End Sub
+
+Sub LG_Pause
+  ' called when going to background, rotated or exiting the application
+End Sub
+
+Sub LG_Resume
+  ' unlike Activity_Pause this is only called when returning from LG_Pause
+End Sub
+
+Sub LG_Dispose
+    ' called just before application stops, release memory
+	img_sprites.dispose
+	img_bline.dispose
+	img_backing.dispose
+	img_Logo.dispose
+	img_GOBacking.dispose
+	bitmapfont.dispose
+	
+	snd_music1.dispose
+	snd_music2.dispose	
+	snd_select.dispose
+	snd_pop.dispose
+	snd_ting.dispose
+	snd_superpop.dispose
+	snd_warning.dispose
+	snd_gameover.dispose
+	Batch.dispose
+End Sub
+
+' -------------------------------------------------------------
+' INPUT routines
+' -------------------------------------------------------------
+
+Sub IP_TouchDown(ScreenX As Int, ScreenY As Int, Pointer As Int) As Boolean
+	
+	'calculate coords touched
+	ScreenX = vpW * (ScreenX / lGdx.Graphics.Width)          'translate x coord
+	ScreenY = vpH - (vpH * (ScreenY / lGdx.Graphics.Height)) 'flip and translate Y coords
+
+    ' process screen press for different screens
+	If Not(splashscreendone) Then
+	    GetSplashScreenInput(ScreenX, ScreenY)               ' get game options
+		
+    Else If Not(gamerunning) Then
+	    GetMainMenuInput(ScreenX, ScreenY)	                 ' Main Menu - waiting to start game
+		
+	Else If gameover         Then
+	    GetGameoverBoxInput(ScreenX, ScreenY)                ' play again?
+		
+	Else
+	    GetMainGameLoopInput(ScreenX, ScreenY)               ' play the game
+	End If
+
+	Return False
+End Sub
+
+Sub IP_TouchDragged(ScreenX As Int, ScreenY As Int, Pointer As Int) As Boolean
+	Return False
+End Sub
+
+Sub Activity_KeyPress (KeyCode As Int) As Boolean 
+  If KeyCode = KeyCodes.KEYCODE_BACK Then
+    If Not(splashscreendone) Then
+	  splashscreendone = True
+	  Return True
+	End If
+	
+    If gamerunning Then
+  	  gamePaused = True
+	  PlaySound(snd_select)
+  	  If gameover Or Msgbox2("Return to main menu?", "", "Yes", "", "No", Null) = DialogResponse.POSITIVE Then
+		gamerunning = False
+		score       = 0
+		gameover    = True
+	  End If
+	  gamePaused  = False
+	  PlaySound(snd_select)
+	  Return True
+	  Else
+	  	Dim sss As Int
+	  	sss = Msgbox2("Do you want to Exit ?","Attention!","Yes","","No",Null)
+		If sss = DialogResponse.POSITIVE Then
+				if IAd.Ready then IAd.Show else IAd.LoadAd
+			Return False
+			End If
+    End If
+  End If
+
+Return False
+End Sub
+
+Sub ButtonPressed(butn As typMenuItem,SX As Int, SY As Int) As Boolean
+  Dim p As Boolean
+  p = (SX > vpW*(1-butn.Wide)) And (SY > butn.y - butn.height - 15) And (SX < vpW*butn.Wide) And (SY < butn.y + 15)  ' includes a margin for bouncing buttons
+  If p Then PlaySound(snd_select)
+  Return p
+End Sub
+
+Sub CreateButtons
+'   InitBtn(Button,       Scale,   Text,                 X,         Y,       Wide)
+
+    InitBtn(btn_startgame, 1.2,  "START GAME",          vpW*0.50, vpH*0.50,  0.98)  ' main menu
+    InitBtn(btn_sound,       1,  "SOUND",               vpW*0.50, vpH*0.35,  0.8)
+    InitBtn(btn_music,       1,  "MUSIC",               vpW*0.50, vpH*0.28,  0.8)
+    InitBtn(btn_moregames, 0.8,  "Game Options",        vpW*0.50, vpH*0.15,  0.85)
+	
+    InitBtn(btn_playagain, 0.7,  "Play Again!",         vpW*0.50, vpH*0.45,  0.8)  ' game end box
+    InitBtn(btn_mainmenu,  0.7,  "Main Menu",           vpW*0.50, vpH*0.38,  0.8)
+
+	InitBtn(btn_resetscore,0.7,  ">> RESET Highscore",  80,       vpH*0.85,   1)   ' splash screen
+	InitBtn(btn_chgmusic,  0.7,  ">> Music Track 1",    80,       vpH*0.76,   1)
+	InitBtn(btn_logo,      0.7,  "logo",                60,       vpH*0.56,   1)   ' top left of logo pic
+	InitBtn(btn_playstore, 0.7,  ">> Credit : BlueJay &",          80,       vpH*0.23,   1)
+	InitBtn(btn_playstore2,0.7,  ">> Andy McAdam",      80,       vpH*0.16,   1)
+	
+	btn_logo.height = vpH * 0.2   ' this button will be overlayed on graphic img_logo
+	
+End Sub
+
+Sub InitBtn(b_btn As typMenuItem, b_scale As Float, b_txt As String, bx As Float, by As Float, b_wide As Float)
+	'setup button definition
+    If Not(b_btn.IsInitialized) Then b_btn.Initialize
+    bitmapfont.Scale(b_scale)               ' set this so we can calc height of the text
+	b_btn.scale  = b_scale
+	b_btn.height = bitmapfont.CapHeight
+	b_btn.text   = b_txt
+	b_btn.x      = bx
+	b_btn.y      = by
+	b_btn.wide   = b_wide                   ' right side is at wide% of view port width
+End Sub
+
+Sub SelectOneBlock(Selecttyp As Int, Gcell As typCell) As Int
+  If (Gcell.typ = Selecttyp) And Not(Gcell.selected) Then
+    Gcell.selected = True
+	Return 1
+  Else
+    Return 0
+ End If
+End Sub
+
+Sub SelectConnectedBlocks(GX As Int, GY As Int)
+   Dim blocksadded  As Int	
+  
+   'clear all selections
+   For x = 0 To GXMax - 1
+	 For y = 0 To GYMax - 1
+	   grid(x,y).selected = False
+	 Next
+	Next
+				
+	grid(GX,GY).selected = True              ' select current block
+	temp                 = grid(GX,GY).typ   ' remember type of block	
+	selected             = 1
+	
+	'scan for connected blocks AND Select them too
+	'repeat Loop until all connecting blocks are selected
+	blocksadded = 1
+					
+	Do While blocksadded <> 0 
+	  blocksadded = 0
+	  For x = 0 To GXMax - 1
+		For y = 0 To GYMax - 1
+		' ---------------------------------------
+		  If grid(x,y).selected Then
+		    If (y > 0)       Then blocksadded = blocksadded + SelectOneBlock(temp,grid(x,y-1)) ' check cell below
+			If (y < GYMax-1) Then blocksadded = blocksadded + SelectOneBlock(temp,grid(x,y+1)) ' check cell above
+		    If (x > 0)       Then blocksadded = blocksadded + SelectOneBlock(temp,grid(x-1,y)) ' check cell left
+			If (x < GXMax-1) Then blocksadded = blocksadded + SelectOneBlock(temp,grid(x+1,y)) ' check cell right			
+		  End If
+	    ' ------------------------------------------------------
+	  Next
+    Next
+	selected = selected + blocksadded
+  Loop 
+End Sub
+
+Sub GetMainGameLoopInput(SX As Float, SY As Float)
+        'main game loop is running - called from IP_TouchDown
+  
+		Dim tempX       As Int
+		Dim tempY       As Int
+		
+		'calculate game board cell touched
+		tempX = (SX - boardLeft) / cellsize
+		tempY = (SY - boardBottom) / cellsize
+		
+		' check if playing board pressed
+		If offsety > 0 Then Return                                                          ' board still dropping
+		If tempX > (GXMax - 1) Or tempY > (GYMax - 1) Or tempX < 0 Or tempY < 0 Then Return ' outside playing board
+		
+		' ---------------------------------------------------
+		' select blocks
+		' ---------------------------------------------------
+		
+		If Not(grid(tempX,tempY).selected) Then ' not already selected
+		  SelectConnectedBlocks(tempX,tempY)
+		  If selected = 1 Then grid(tempX,tempY).selected = False  ' cant select just one sprite		  
+		  If selected > 1 Then
+		     waitforframe = frames + (20 * FpsScale)               ' for auto double press
+			 PlaySound(snd_select)
+		  End If
+		Else
+		  KillAllSelectedSprites   ' pressed on already selected sprite
+		End If
+	
+End Sub
+
+Sub GetSplashScreenInput(SX As Float, SY As Float)
+      ' game options screen is showing - called from IP_TouchDown
+      If frames < 600 Then frames = frames + 600                          ' Cancel countdown if screen pressed
+	  
+	  If ButtonPressed(btn_logo, SX, SY)     Then splashscreendone = True ' logo pressed exit splash screen
+	  If ButtonPressed(btn_playstore,SX,SY)  Then Show_Playapps           ' goto Google PlayStore Bluejay
+	  If ButtonPressed(btn_playstore2,SX,SY) Then Show_Playapps2          ' goto Google PlayStore Andy McAdam
+	  If ButtonPressed(btn_chgmusic,SX,SY)   Then ChangeMusic(3 - Track)  ' toggle track between 1 and 2
+	  If ButtonPressed(btn_resetscore,SX,SY) Then
+		 highscore    = 0                                                 ' reset highscore to zero
+		 dx           = -vpW                                              ' animate highscore by moving it off screen
+		 SaveHighScore                                                    ' write highscore to file		 
+	  End If
+End Sub
+
+Sub GetGameoverBoxInput(SX As Float, SY As Float)
+    ' game over box is showing - called from IP_TouchDown
+    If frames < waitforframe Then Return  ' avoid accidental button press by ignoring inputs briefly
+	If ButtonPressed(btn_playagain, SX, SY) Then Setuplevel	
+	If ButtonPressed(btn_mainmenu, SX, SY)  Then
+		gamerunning = False
+		score       = 0
+		gameover    = False
+	End If
+End Sub
+
+Sub GetMainMenuInput(SX As Float, SY As Float)
+        ' main menu is showing - called from IP_TouchDown
+		
+        ' sound button
+		If ButtonPressed(btn_sound,SX,SY) Then
+		    soundplaying = Not(soundplaying)
+			If soundplaying Then btn_sound.text = "Sound On" Else btn_sound.text = "Sound Off"
+			If soundplaying Then PlaySound(snd_select)
+			SaveSettings
+			
+		' music button
+		Else If ButtonPressed(btn_music,SX,SY) Then
+		    musicplaying = Not(musicplaying)
+			If musicplaying Then 
+				btn_music.text = "Music On"
+				snd_music.Play
+			Else
+				btn_music.text = "Music Off"
+				snd_music.Pause			
+			End If
+			SaveSettings
+			
+		' start game button
+		Else If ButtonPressed(btn_startgame,SX,SY) Then
+			Setuplevel
+			
+		' game options button
+		Else If ButtonPressed(btn_moregames,SX,SY) Then
+			splashscreendone = False
+		End If
+
+End Sub
+
+' -------------------------------------------------------------
+'  SOUND routines
+' -------------------------------------------------------------
+
+Sub PlaySound(soundName As lgSound)
+	If soundplaying Then soundName.Play
+End Sub
+
+Sub Play_Music(vol As Float)
+  If musicplaying Then
+    If snd_music.Volume <> vol  Then snd_music.Volume = vol
+    If Not(snd_music.IsPlaying) Then
+	  snd_music.Looping = True
+	  snd_music.Play
+	End If
+  End If
+End Sub
+
+Sub ChangeMusic(trk As Int)
+  snd_music.Stop
+  If trk = 1 Then snd_music = snd_music1 Else snd_music = snd_music2
+  btn_chgmusic.text = ">> Music Track "& trk
+  Track = trk
+  SaveSettings
+End Sub
+
+' -------------------------------------------------------------
+' DRAW routines
+' -------------------------------------------------------------
+
+Sub DrawShadowText(text As String, x As Int, y As Int, centered As Boolean)
+  'shadow text font - used to show a shadowed font on screen, simpler than calling draw2 method
+  Dim tw As Float
+
+  If centered Then tw = (bitmapfont.GetBounds(text).Width/2) Else tw = 0
+  bitmapfont.Draw2(Batch,text,x-tw,  y,  bitmapfont.Color.black)
+  bitmapfont.Draw2(Batch,text,x-tw-2,y-2,bitmapfont.Color.white)
+End Sub
+
+Sub Draw_Button(btn As typMenuItem, XX As Float, YY As Float, Centered As Boolean)
+	'draw a button offset by XX and YY
+	bitmapfont.Scale(btn.scale)
+	DrawShadowText(btn.text,btn.x+XX,btn.y+YY,Centered)
+End Sub
+
+Sub DrawMiniSprites
+	'draw Mini Sprites at top of screen
+	Dim dy      As Float
+	Dim Msprite As typSprite
+	
+	dy = 8*Sin((frames)/6)
+	Msprite.Initialize	
+	
+	For I = 0 To MiniSpriteList.Size-1
+		Msprite = MiniSpriteList.Get(I)
+		Batch.DrawRegion3(spriteframes(0,Msprite.ftype-1),Msprite.x,Msprite.y,20,40,40,40,1,1,dy)
+		dy = - dy
+	Next
+End Sub
+
+Sub DrawFlyingSprites
+    ' flying sprites on main menu screen
+	
+	' render and move the sprites
+	Dim sprite As typSprite
+	sprite.Initialize	
+	For x = 0 To SpriteList.Size-1
+		sprite    = SpriteList.Get(x)
+		If sprite.y < -100 Then SetupRandomSprite(sprite)
+		Batch.DrawRegion2(spriteframes(0,sprite.ftype-1),sprite.x,sprite.y,60,60)
+		'move sprite
+		sprite.my = sprite.my - (C_GRAVITY/2 * FpsScale)
+		sprite.x  = sprite.x + (sprite.mx * FpsScale)
+		sprite.y  = sprite.y + (sprite.my * FpsScale)
+	Next
+
+End Sub
+
+Sub DrawBorder(border As Int, x As Int, y As Int)
+  ' draw part of border for selection 
+  Batch.DrawRegion2(img_blineFrames(0,border),boardLeft+cellsize*x-10,boardBottom+cellsize*y-10,cellsize,cellsize)
+End Sub
+
+Sub DrawBoundingLines
+    ' draw border lines around the selected blocks
+	For x = 0 To GXMax-1
+		For y = 0 To GYMax-1
+			If grid(x,y).selected Then
+				If (y = 0)        Or Not(grid(x,y-1).selected) Then DrawBorder(1,x,y) 'bottom line
+				If (y = GYMax-1)  Or Not(grid(x,y+1).selected) Then DrawBorder(0,x,y) 'top line 
+				If (x = 0)        Or Not(grid(x-1,y).selected) Then DrawBorder(2,x,y) 'left side
+				If (x = GXMax-1 ) Or Not(grid(x+1,y).selected) Then DrawBorder(3,x,y) 'right side
+			End If
+		Next
+	Next
+End Sub
+
+Sub DrawSprites
+	'loop through games grid
+	Dim T As Float  = 1 + Sin((waitforframe - frames - 10)/8)    ' waitforframe used to ensure we always start at same point in sin wave
+	
+	For x = 0 To GXMax-1
+		For y =  GYMax-1 To 0 Step -1
+			If grid(x,y).typ > 0 Then              'if block exists in cell then draw it
+				If grid(x,y).selected Then         'if block selected then bob up and down
+					Batch.DrawRegion2(spriteframes(0,grid(x,y).typ-1), boardLeft+(x*cellsize)-6-2.5*T, offsety+boardBottom+y*cellsize-6-2.5*T,(cellsize-10)+5*T,(cellsize-10)+5*T)
+				Else
+				    'otherwise draw static and falling blocks
+					Batch.DrawRegion2(spriteframes(0,grid(x,y).typ-1), boardLeft+(x*cellsize)-6, offsety+boardBottom+y*cellsize-6+grid(x,y).dy,cellsize-10,cellsize-10)
+				End If
+			End If
+		Next
+	Next
+
+	' Draw Dead sprites
+	Dim sprite As typSprite
+	sprite.Initialize	
+	For x = 0 To DeadSpriteList.Size-1
+		sprite = DeadSpriteList.Get(x)
+		Batch.DrawRegion2(spriteframes(0,sprite.ftype-1),sprite.x,sprite.y,cellsize-5,cellsize-5)
+	Next	
+End Sub
+
+Sub DrawStatusMessages
+    ' draw selection worth
+	bitmapfont.Scale(0.5)
+	DrawShadowText("Worth",vpW*0.80,vpH*0.88,True)
+	DrawShadowText( worth, vpW*0.80,vpH*0.84,True)
+
+	' Draw score
+	bitmapfont.Scale(0.7)
+	DrawShadowText(" Score",vpW/2,vpH*0.89,True)
+	DrawShadowText(  score, vpW/2,vpH*0.84,True)
+
+	' Draw Highscore
+	bitmapfont.Scale(0.5)
+	DrawShadowText("HighScore",vpW*0.20,vpH*0.88,True)
+	DrawShadowText( highscore, vpW*0.20,vpH*0.84,True)
+
+	' Draw countdown timer
+	bitmapfont.Scale(0.8+Sin(Aframe/5)/20)
+	If countdown < 10 Then Aframe = Aframe + 1                              ' avoid sudden jump when starting bounce
+	DrawShadowText("Time Left: " & Round(countdown),vpW*0.50,vpH*0.95,True)	
+	If (Round(countdown) < warningcount) And (countdown > 0) Then
+	  PlaySound(snd_warning)
+	  warningcount = warningcount - 1
+	End If
+	
+End Sub
+
+Sub DrawScoreMessages
+    ' draw a text score over each popped sprite
+	Dim sx       As Float
+	Dim scoreMes As typScore
+	
+	sx = 5*Sin(frames/5)
+	scoreMes.Initialize
+	bitmapfont.Scale(0.6)	
+
+	For x = 0 To ScoresList.Size-1
+		scoreMes = ScoresList.Get(x)
+		DrawShadowText(""&scoreMes.amount,scoreMes.x+sx,scoreMes.y,True)
+	Next
+End Sub
+
+' -------------------------------------------------------------
+' PLAY routines
+' -------------------------------------------------------------
+
+Sub DropDownBoard
+	'Drop board at start of level
+	If offsety > 0 Then                                    ' board is falling to bottom of screen
+	    offsetyMy = offsetyMy + (C_GRAVITY * FpsScale)     ' increase speed
+		offsety   = offsety - (offsetyMy * FpsScale)       ' C_GRAVITY value chosen to avoid case of offsety = 0
+	Else If offsety < 0 Then                               ' board reached bottom of screen
+	  offsety   = 0
+	  PlaySound(snd_ting)
+	End If
+
+End Sub
+
+Sub UpdateDeadSprites
+	Dim sprite As typSprite
+	sprite.Initialize
+	
+    Dim yy As Int = -1	
+	For x = 0 To DeadSpriteList.Size-1
+		sprite    = DeadSpriteList.Get(x)
+		sprite.my = sprite.my - (C_GRAVITY * FpsScale)
+		sprite.x  = sprite.x + (sprite.mx * FpsScale)
+		sprite.y  = sprite.y + (sprite.my * FpsScale)
+		If (yy = -1) And (sprite.y < -100) Then yy = x
+	Next
+	If yy > -1 Then DeadSpriteList.RemoveAt(yy)
+End Sub
+
+Sub UpdateScoreMessages
+	Dim scoreMes As typScore
+	scoreMes.Initialize
+
+	For x = 0 To ScoresList.Size-1
+		scoreMes      = ScoresList.Get(x)
+		scoreMes.y    = scoreMes.y + 1
+		scoreMes.life = scoreMes.life - 1
+		If scoreMes.life < 0 Then
+			ScoresList.RemoveAt(x)
+			Exit
+		End If
+	Next
+End Sub
+
+Sub AddNewSpritesToTopOfBoard
+	For x = 0 To GXMax-1                                     ' look at each column
+		If grid(x,GYMax-1).typ  = 0 Then                     ' is there a blank space in top row (0 = empty)
+			grid(x,GYMax-1).typ = Rnd(1,6)                   ' sprite type 1 to 5 
+			grid(x,GYMax-1).dy  = Rnd(cellsize,cellsize*3)   ' random y offset above the empty space
+		End If
+	Next
+End Sub
+
+Sub DropBlocksIntoSpaces
+	'drop blocks into blank spaces left from removed sprite
+	'look at each column and from bottom to top move blocks down into empty spaces and calc y offset from final position
+	For x = 0 To GXMax-1
+		For y = 0 To GYMax - 2
+			If grid(x,y).typ = 0 And grid(x,y+1).typ > 0 Then ' non-empty block has an empty space below it
+				grid(x,y).typ   = grid(x,y+1).typ             ' move block down
+				grid(x,y).dy    = grid(x,y+1).dy + cellsize   ' set y offset to distance from final vertical position
+				grid(x,y+1).typ = 0                           ' make old position empty
+			End If
+		Next
+	Next
+
+	'animate falling blocks
+	For x = 0 To GXMax-1
+		For y = 0 To GYMax - 1
+			If grid(x,y).dy > 0 Then                                    ' block still offset from final position
+				grid(x,y).my = grid(x,y).my + (C_GRAVITY * FpsScale)    ' accelerate the speed of falling
+				grid(x,y).dy = grid(x,y).dy - (grid(x,y).my * FpsScale) ' reduce y offset from final position
+			Else 
+				grid(x,y).dy = 0                                        ' in final position so clear y offset and speed
+				grid(x,y).my = 0
+			End If
+		Next
+	Next	
+	
+End Sub
+
+Sub AddScoreMessage(ew As Int, GX As Int, GY As Int)
+	Dim scoreMes As typScore
+	scoreMes.Initialize
+	scoreMes.x      = boardLeft+GX*cellsize+cellsize/2
+	scoreMes.y      = boardBottom+GY*cellsize+cellsize
+	scoreMes.amount = ew
+	scoreMes.life   = 50
+	ScoresList.Add(scoreMes)
+End Sub
+
+Sub AddToDeadList(typ As Int, GX As Int, GY As Int)
+  If typ > 0 Then
+	Dim sprite As typSprite
+	sprite.Initialize
+	sprite.x      = boardLeft+GX*cellsize
+	sprite.y      = boardBottom+GY*cellsize
+	sprite.mx     = Rnd(-5,5)
+	sprite.my     = 10
+	sprite.ftype  = typ
+	DeadSpriteList.Add(sprite)
+  End If
+End Sub
+
+Sub KillAllSelectedSprites
+	' -----------------------------------------------------------------------------
+	' Pressed on already selected area so clear sprites AND increase score
+	' ----------------------------------------------------------------------------
+				
+    If selected > 5 Then PlaySound(snd_superpop) Else PlaySound(snd_pop)
+
+	eachworth = worth / selected
+	For x = 0 To GXMax-1
+		For y = 0 To GYMax-1
+			If grid(x,y).selected Then
+				AddToDeadList(grid(x,y).typ,x,y)
+				AddScoreMessage(eachworth,x,y)
+				grid(x,y).selected = False			' unselect
+				grid(x,y).typ      = 0              ' set type = empty block
+			End If
+		Next
+	Next	
+	selected = 0
+	score    = score + worth
+End Sub
+
+' --------------------------------------------------------------
+' Game Play Screen, Main Menu Screen, Game Options/SplashScreen
+' --------------------------------------------------------------
+
+Sub Main_Gameplay_Loop
+    ' see also game logic in subroutine getMainGameLoopInput
+	
+    ' begin calculations ----------------------------------------
+    If offsety <> 0 Then ' game board not at bottom of screen
+	   DropDownBoard  
+	Else	
+	  'update countdown timer and check if time has run out
+	  If Not(gamePaused) And Not(gameover) Then
+	    countdown = countdown - lGdx.Graphics.DeltaTime
+	    If (countdown < 0) Then
+	      PlaySound(snd_gameover)
+	      gameover  = True
+		  selected  = 0
+		  countdown = 0
+		  waitforframe = frames + (100 * FpsScale) ' to avoid accidental touches when gameover box first shown
+		End If
+	  End If
+	End If
+	
+	If selected > 0 Then worth = selected + (selected * (selected-2))
+	If selected > 1 And frames > waitforframe Then KillAllSelectedSprites
+	
+    DropBlocksIntoSpaces       ' move blocks down to into empty spaces in Grid
+	UpdateDeadSprites          ' calc new position of the falling dead sprites
+    UpdateScoreMessages        ' calc new position of text score on top of the dead sprite old grid location
+    AddNewSpritesToTopOfBoard  ' add new sprite if empty space in top row
+	'end calculations --------------------------------------------
+
+	
+	'begin draw batch --------------------------------------------
+	Batch.Begin
+	frames = frames + 1
+	
+	'draw background pic
+	Batch.SetColorRGBA(0.5,0.5,0.5,1)                     ' set half brightness
+	Batch.DrawTex2(img_backing,-200,-200,vpW+400,vpH+200)
+	Batch.SetColorRGBA(1,1,1,1)	                          ' set full brightess
+	
+	DrawMiniSprites           ' decorative sprites at top of screen
+    DrawBoundingLines         ' border around selections
+    DrawSprites               ' draw all the sprites on the board including falling ones
+    DrawScoreMessages         ' show animated scores over each popped sprite
+	DrawStatusMessages        ' show values of countdown timer, current score, worth and high score
+		
+	If gameover = True Then Draw_Gameover_Box  'gameover so draw score - highscore - restart button - menu button
+	
+	Batch.End
+	'end draw batch	----------------------------------------------
+	
+    Play_Music(0.5)
+End Sub
+
+Sub Draw_Gameover_Box
+  Dim dy As Float
+  If frames > waitforframe Then dy = Sin((frames-waitforframe-1)/12) Else dy = 0 ' bob if ready to accept input
+  
+  Batch.DrawTex2(img_GOBacking,vpW*0.08,vpH*0.28,vpW*0.84,vpH*0.44)
+  bitmapfont.Scale(0.8)  
+  DrawShadowText("Game Over!",vpW*0.49,vpH*0.66,True)
+		
+  'high score		
+  If score > highscore Then 'new high score
+    highscore = score
+	PlaySound(snd_fanfare)
+    SaveHighScore
+  End If	
+  
+  bitmapfont.Scale(0.7) 			
+  If score = highscore Then
+    DrawShadowText("NEW HIGH SCORE",vpW/2,vpH*0.58,True)
+  Else
+    DrawShadowText("SCORE",vpW/2,vpH*0.58,True)
+  End If  
+  DrawShadowText(""&score,vpW/2,vpH*0.52,True) 
+  
+  Draw_Button(btn_playagain,0,-dy*2,True)
+  Draw_Button(btn_mainmenu, 0,-dy*3,True)
+End Sub
+
+Sub Draw_Main_Menu
+	'draw main menu
+
+	Batch.Begin
+	frames = frames + 1	
+	
+	'draw background
+	Batch.DrawTex2(img_backing,-200,-200,vpW+400,vpH+200)
+	
+	DrawMiniSprites
+    DrawFlyingSprites
+	
+	'draw foreground
+	Batch.DrawTex2(img_foregnd,-200,-200,vpW+400,vpH*0.6)	
+	
+	'draw title
+	bitmapfont.Scale(1.4+Sin(frames/5)/20)
+	DrawShadowText("Troll Face",vpW*0.45,vpH*0.78,True)
+	DrawShadowText("Crush",vpW*0.65,vpH*0.70,True)
+
+    'draw buttons
+	Draw_Button(btn_startgame,0,-(Sin((frames+40)/10)*4),True) ' start game button
+	Draw_Button(btn_sound,0,-(Sin(frames/12)*2),True)          ' enable sound button
+    Draw_Button(btn_music,0,Sin(frames/15)*2,True)             ' enable music button
+	Draw_Button(btn_moregames,0,Sin(frames/18)*2,True)         ' games options button
+	
+	'draw copyright
+	bitmapfont.Scale(0.4)
+	DrawShadowText("Copyright (2017)",vpW*0.5,vpH*0.05,True)
+	
+	'draw frame rate
+'	bitmapfont.Scale(0.4)
+'	DrawShadowText("Fps: "& Round(FpsScale * 60),10,60,False)	
+	
+	Batch.End
+	
+	Play_Music(0.5)   'check music playing
+End Sub
+
+Sub Draw_Splash_Screen
+    Dim dy As Int
+	dy = 8*Sin(frames/10)
+
+	Batch.Begin
+	frames = frames + 1	
+	
+	'check frames number to close initial splash screen after some time, show countdown
+    If frames < 600 Then
+	  bitmapfont.Scale(0.8)	
+	  DrawShadowText(Round((waitforframe - frames)/60), vpW * 0.5, vpH * 0.69, True)
+	  If (frames > waitforframe) Then splashscreendone = True	  
+	End If
+	
+	'draw HighScore
+	bitmapfont.Scale(0.7)
+	DrawShadowText("HighScore:"&highscore,60+dx,vpH*0.95,False)
+	If dx <> 0 Then dx = dx + 16  ' dx was set negative by resetscore button
+	If dx > 0  Then dx = 0
+	
+	'draw buttons
+	Draw_Button(btn_resetscore,0,-dy,  False)
+	Draw_Button(btn_chgmusic,  0,-dy,  False)
+	Draw_Button(btn_playstore, 0,-dy/2,False)  ' BlueJay
+	Draw_Button(btn_playstore2,0,-dy/2,False)  ' Andy McAdam
+
+	' draw logo and credits
+	Batch.DrawTex(img_Logo,btn_logo.x,btn_logo.y - btn_logo.height)  ' aligned with invisible button
+    bitmapfont.Scale(0.7)	
+	DrawShadowText("Programming:", 60, vpH*0.30, False)
+	DrawShadowText("Ver 1.0",      60, vpH*0.08, False)
+
+	Batch.End
+	
+	Play_Music(0.2)    ' reduced volume	
+End Sub
+
+' --------------------------------------------------------------
+' FILE and OTHER routines
+' --------------------------------------------------------------
+
+Sub SaveHighScore
+	'write highscore to file
+	SaveSettings
+End Sub
+
+Sub Load_Settings
+'recall settings, use defaults if not found
+	soundplaying = True
+	musicplaying = True ' set both to true if first run
+	Track        = 1
+	highscore    = 0
+	
+	If File.Exists(File.DirInternal,"settings.dat") Then               ' only open if file exists
+		file_settings.Initialize(File.DirInternal,"settings.dat",True) ' open file as readonly
+		Try
+            soundplaying = (file_settings.ReadInt(0)  = 1)
+		    musicplaying = (file_settings.ReadInt(10) = 1)
+		    Track        =  file_settings.ReadInt(20)
+		    highscore    =  file_settings.ReadInt(30)
+		Catch
+		  Log("Error reading settings file")
+		End Try
+		file_settings.Close
+	End If
+	
+	If soundplaying Then btn_sound.text = "Sound On" Else btn_sound.text = "Sound Off"
+	If musicplaying Then btn_music.text = "Music On" Else btn_music.text = "Music Off"	
+End Sub
+
+Sub SaveSettings
+  file_settings.Initialize(File.DirInternal,"settings.dat",False)
+  If soundplaying Then file_settings.writeint(1,0)  Else file_settings.writeint(0,0)
+  If musicplaying Then file_settings.writeint(1,10) Else file_settings.writeint(0,10)
+  file_settings.WriteInt(Track,20)
+  file_settings.WriteInt(highscore,30)  
+  file_settings.Close
+End Sub
+
+Sub Setuplevel
+	offsety       = vpH               ' move game board off the top of the screen
+	offsetyMy     = 0                 ' speed to drop back down, will be increased by GRAVITY value
+	
+	countdown     = 60                ' 60 seconds per game
+	warningcount  = 10                ' warnings for last 10 seconds
+	gameover      = False
+	gamerunning   = True
+	score         = 0
+	worth         = 0
+	selected      = 0
+	Aframe        = 0
+	DeadSpriteList.Clear
+	
+	'Initializes the position of each sprite in the game board
+	For x = 0 To GXMax-1
+		For y = 0 To GYMax-1
+		    grid(x,y).Initialize
+		 	grid(x,y).typ      = Rnd(1,6)   ' type of sprite 1 to 5, 0 = empty
+			grid(x,y).selected = False      ' clear select flag
+			grid(x,y).dy       = 0          ' no y offset from grid position
+			grid(x,y).my       = 0
+		Next
+	Next
+
+End Sub
+
+Sub Show_Playapps
+    Try
+		Dim market As Intent, Uri As String
+		Uri="market://search?q=pub:100 Phoe 3 Khu Apps" 'show all apps
+		market.Initialize( market.ACTION_VIEW,Uri )
+		StartActivity( market )
+	Catch
+	  Log("playapps error")
+	End Try
+End Sub
+
+Sub Show_Playapps2
+    Try
+		Dim market As Intent, Uri As String
+		Uri="http://www.takhon.com/tech" 'show all apps
+		market.Initialize( market.ACTION_VIEW,Uri )
+		StartActivity( market )
+	Catch
+	  Log("playapps2 error")
+	End Try
+End Sub
+
+Sub CreateMiniSprites
+  ' create random sprites at top of screen
+  MiniSpriteList.Clear
+  AddMiniSprite( 40,vpH*0.946)
+  AddMiniSprite(140,vpH*0.931)
+  AddMiniSprite(230,vpH*0.964)
+  AddMiniSprite(330,vpH*0.964)
+  AddMiniSprite(428,vpH*0.938)
+  AddMiniSprite(540,vpH*0.955)
+  AddMiniSprite(620,vpH*0.958)  
+End Sub
+
+Sub AddMiniSprite(X As Float, Y As Float)
+	Dim MSprite As typSprite
+	MSprite.Initialize
+	MSprite.X     = X
+	MSprite.Y     = Y
+	MSprite.ftype = Rnd(1,6)
+	MiniSpriteList.Add(MSprite)
+End Sub
+
+Sub SetupRandomSprite(sp As typSprite)
+	  sp.x     = Rnd(vpW*0.1,vpW*0.9)
+	  sp.y     = Rnd(vpH*0.1,vpH*0.9)
+	  sp.mx    = Rnd(-5,5)
+	  sp.my    = 10
+	  sp.ftype = Rnd(1,6)
+End Sub
+
+Sub CreateFlyingSprites
+  ' create list of random sprites for Main Manu screen
+  SpriteList.Clear
+  For x = 0 To 25
+	  Dim sprite As typSprite
+	  sprite.Initialize
+	  SetupRandomSprite(sprite)
+	  SpriteList.Add(sprite)
+  Next
+End Sub
+
